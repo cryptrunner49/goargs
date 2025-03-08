@@ -54,6 +54,6 @@ After running your application, find the auto-generated docs in the `docs/` fold
 
 We welcome contributions! Check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to help improve ArGonaut.
 
-## License 📄
+## License 📜
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
