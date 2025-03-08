@@ -1,6 +1,6 @@
-# Contributing to GoArgonaut 🤝🏹  
+# Contributing to ArGonaut 🤝🏹  
 
-Thank you for considering contributing to **GoArgonaut**! Your help makes this project better.  
+Thank you for considering contributing to **ArGonaut**! Your help makes this project better.  
 
 ## How to Contribute 🛠️
 
@@ -11,7 +11,7 @@ Thank you for considering contributing to **GoArgonaut**! Your help makes this p
 
 ## Reporting Issues 🐛
 
-- Check existing [issues](https://github.com/cryptrunner49/goargonaut/issues) before creating a new one.
+- Check existing [issues](https://github.com/cryptrunner49/argonaut/issues) before creating a new one.
 - If opening a new issue, provide clear steps to reproduce the problem.  
 
 ## Code Style & Guidelines 🎨
