@@ -46,10 +46,6 @@ func main() {
 }
 ```
 
-## Documentation 📖
-
-After running your application, find the auto-generated docs in the `docs/` folder. They update automatically as you modify your commands and flags!  
-
 ## Contributing 🤝
 
 We welcome contributions! Check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to help improve ArGonaut.
