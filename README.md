@@ -1,6 +1,6 @@
 # ArGonaut 🏹🚀  
 
-**ArGonaut** is an easy-to-use CLI argument parser for Go that automatically generates documentation for every command and flag—keeping your docs up-to-date effortlessly!  
+**ArGonaut** is an easy-to-use CLI argument parser for Go that automatically generates documentation for every command and flag, ensuring your docs stay up-to-date with zero effort! 🚀📚
 
 ## Features ✨
 
@@ -8,14 +8,6 @@
 - **Simple & Intuitive:** Easily define CLI arguments with minimal setup.
 - **Flexible & Powerful:** Supports nested commands and custom flag types.
 - **Go-Powered:** Lightweight, efficient, and designed for performance.
-
-## Installation 🛠️  
-
-Install ArGonaut via `go get`:  
-
-```bash
-go get github.com/cryptrunner49/argonaut
-```
 
 ## Quick Start 🚀  
 
