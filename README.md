@@ -9,9 +9,15 @@
 - **Flexible & Powerful:** Supports nested commands and custom flag types.
 - **Go-Powered:** Lightweight, efficient, and designed for performance.
 
-## Quick Start 🚀  
+## Quick Start 🚀
 
-Here's a simple example:  
+1. **Install via Go Modules:**
+
+   ```bash
+   go get github.com/cryptrunner49/argonaut
+   ```  
+
+2. **Basic Usage Example:**
 
 ```go
 package main
