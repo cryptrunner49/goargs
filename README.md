@@ -24,7 +24,7 @@ package main
 
 import (
     "fmt"
-    "github.com/cryptrunner49/argonaut"
+    "github.com/cryptrunner49/argonaut/parser"
 )
 
 func main() {
