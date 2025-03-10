@@ -104,8 +104,9 @@ func (p *Parser) Parse(args []string) error {
 		}
 	}
 
-	// Set flag values
-	for _, fi := range p.flags {
+	// Set flag values, processing in reverse to ensure last registration wins
+	for i := len(p.flags) - 1; i >= 0; i-- {
+		fi := p.flags[i]
 		for _, name := range []string{fi.shortName, fi.longName} {
 			if val, ok := setFlags[name]; ok {
 				switch fi.kind {
@@ -126,6 +127,8 @@ func (p *Parser) Parse(args []string) error {
 						return fmt.Errorf("invalid value for bool flag -%s/--%s: %s", fi.shortName, fi.longName, val)
 					}
 				}
+				// Remove the flag from setFlags to prevent earlier duplicates from being set
+				delete(setFlags, name)
 			}
 		}
 	}
@@ -149,13 +152,23 @@ func (p *Parser) Args() []string {
 func (p *Parser) Usage() {
 	fmt.Fprintf(p.output, "Usage of %s:\n", p.program)
 	for _, fi := range p.flags {
+		var flagNames string
+		switch {
+		case fi.shortName != "" && fi.longName != "":
+			flagNames = fmt.Sprintf("-%s, --%s", fi.shortName, fi.longName)
+		case fi.shortName != "":
+			flagNames = fmt.Sprintf("-%s", fi.shortName)
+		case fi.longName != "":
+			flagNames = fmt.Sprintf("--%s", fi.longName)
+		}
+
 		switch fi.kind {
 		case "string":
-			fmt.Fprintf(p.output, "  -%s, --%s string\n        %s (default %q)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
+			fmt.Fprintf(p.output, "  %s string\n        %s (default %q)\n", flagNames, fi.description, fi.defaultValue)
 		case "int":
-			fmt.Fprintf(p.output, "  -%s, --%s int\n        %s (default %d)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
+			fmt.Fprintf(p.output, "  %s int\n        %s (default %d)\n", flagNames, fi.description, fi.defaultValue)
 		case "bool":
-			fmt.Fprintf(p.output, "  -%s, --%s\n        %s (default %t)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
+			fmt.Fprintf(p.output, "  %s\n        %s (default %t)\n", flagNames, fi.description, fi.defaultValue)
 		}
 	}
 }
