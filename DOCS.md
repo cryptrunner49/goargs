@@ -2,7 +2,7 @@
 
 ## Argonaut Parser Library
 
-The `Argonaut Parser` is a simple, lightweight command-line argument parsing library for Go. It allows developers to define and parse flags (string, int, and bool) with optional short (e.g., `-v`) and long (e.g., `--verbose`) forms, and handle positional arguments, including bare commands like `install` or `push`. This library is ideal for small to medium-sized CLI applications where you need flexible flag parsing without additional dependencies.
+The `Argonaut Parser` is a simple, lightweight command-line argument parsing library for Go. It allows developers to define and parse flags (string, int, and bool) with optional short (e.g., `-v`) and long (e.g., `--verbose`) forms, and handle positional arguments, including bare commands like `install` or `push`. This library is ideal for small to medium-sized CLI applications where you need flexible, test-friendly flag parsing without additional dependencies.
 
 This document provides a comprehensive guide to using the library, including installation instructions, usage examples, and a full API reference.
 
@@ -19,20 +19,21 @@ This document provides a comprehensive guide to using the library, including ins
    - [Parsing Arguments](#parsing-arguments)
    - [Accessing Positional Arguments and Bare Commands](#accessing-positional-arguments-and-bare-commands)
    - [Displaying Usage Information](#displaying-usage-information)
+   - [Error Handling](#error-handling)
 4. [Examples](#examples)
    - [Bare Commands Only](#bare-commands-only)
    - [Short Flags Only](#short-flags-only)
    - [Long Flags Only](#long-flags-only)
-   - [Mixed Short and Long Flags](#mixed-short-and-long-flags)
+   - [Mixed Short and Long Flags with Commands](#mixed-short-and-long-flags-with-commands)
 5. [API Reference](#api-reference)
    - [Parser Struct](#parser-struct)
    - [NewParser](#newparser)
+   - [SetProgramName](#setprogramname)
    - [StringVar](#stringvar)
    - [IntVar](#intvar)
    - [BoolVar](#boolvar)
    - [Parse](#parse)
    - [Args](#args)
-   - [Usage](#usage)
 6. [Testing](#testing)
 7. [Contributing](#contributing)
 8. [License](#license)
@@ -62,31 +63,46 @@ The library has no external dependencies beyond the Go standard library.
 
 ## Quick Start
 
-Here’s a minimal example using only bare commands:
+Here’s a minimal example using bare commands and a flag:
 
 ```go
 package main
 
 import (
  "fmt"
+ "os"
  "github.com/cryptrunner49/argonaut/parser"
 )
 
 func main() {
- p := parser.NewParser()
+ p := parser.NewParser(os.Stdout)
+ p.SetProgramName("myapp")
 
- p.Parse()
+ var verbose bool
+ p.BoolVar(&verbose, "v", "verbose", false, "Enable verbose output")
 
- fmt.Println("Commands:", p.Args())
+ err := p.Parse(os.Args[1:])
+ if err != nil {
+  if err == parser.ErrHelpRequested {
+   return
+  }
+  fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+  os.Exit(1)
+ }
+
+ args := p.Args()
+ if len(args) > 0 {
+  fmt.Printf("Command: %s, Verbose: %t\n", args[0], verbose)
+ }
 }
 ```
 
 Run it:
 
 ```bash
-go run main.go install package
+go run main.go start -v
 # Output:
-# Commands: [install package]
+# Command: start, Verbose: true
 ```
 
 ---
@@ -95,7 +111,7 @@ go run main.go install package
 
 ### Defining Flags
 
-Flags are defined using methods like `StringVar`, `IntVar`, and `BoolVar`. Each method registers a flag with optional short and long names, a default value, and a description. You can use only short flags, only long flags, or both, by setting the unused name to an empty string (`""`).
+Flags are defined using `StringVar`, `IntVar`, and `BoolVar`. Each method registers a flag with optional short and long names, a default value, and a description. You can use short flags, long flags, or both by setting unused names to an empty string (`""`).
 
 #### Using Short Flags
 
@@ -113,17 +129,27 @@ Flags are defined using methods like `StringVar`, `IntVar`, and `BoolVar`. Each 
 
 ### Parsing Arguments
 
-Call `Parse()` to process command-line arguments (`os.Args`). It sets registered flag values and collects positional arguments, including bare commands.
+Call `Parse(args []string)` to process command-line arguments. It sets registered flag values, collects positional arguments, and returns an error for invalid inputs or help requests.
 
 ### Accessing Positional Arguments and Bare Commands
 
-Use `Args()` to retrieve a slice of positional arguments, which include bare commands (non-flag arguments without dashes, like `install` or `push`). This allows mimicking styles like `apt install` or `dnf install`.
+Use `Args()` to retrieve a slice of positional arguments, which include bare commands (non-flag arguments without dashes, like `install` or `push`). You can treat these as commands and handle them manually.
 
-- **Bare Commands**: Arguments without `-` or `--` are treated as positional arguments. You can use the parser without defining any flags to focus solely on bare commands.
+- **Bare Commands**: Arguments without `-` or `--` are treated as positional arguments. You can use the parser without flags to focus solely on bare commands or combine them with flags.
 
 ### Displaying Usage Information
 
-The library automatically handles the `--help` and `-h` flags, displaying usage information for all registered flags. The output shows only the defined names (short, long, or both).
+The library automatically handles `--help` and `-h` flags, printing usage to the provided `io.Writer` and returning `ErrHelpRequested`. You can customize the program name with `SetProgramName`.
+
+### Error Handling
+
+`Parse` returns an error in these cases:
+
+- `ErrHelpRequested`: When `--help` or `-h` is provided (usage is printed).
+- Invalid flag values (e.g., non-integer for int flags).
+- Unknown flags.
+
+Check the error and handle accordingly.
 
 ---
 
@@ -131,20 +157,29 @@ The library automatically handles the `--help` and `-h` flags, displaying usage 
 
 ### Bare Commands Only
 
-A program using only bare commands, no flags:
+A program using only bare commands:
 
 ```go
 package main
 
 import (
  "fmt"
+ "os"
  "github.com/cryptrunner49/argonaut/parser"
 )
 
 func main() {
- p := parser.NewParser()
+ p := parser.NewParser(os.Stdout)
+ p.SetProgramName("myapp")
 
- p.Parse()
+ err := p.Parse(os.Args[1:])
+ if err != nil {
+  if err == parser.ErrHelpRequested {
+   return
+  }
+  fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+  os.Exit(1)
+ }
 
  fmt.Println("Commands:", p.Args())
 }
@@ -167,18 +202,27 @@ package main
 
 import (
  "fmt"
+ "os"
  "github.com/cryptrunner49/argonaut/parser"
 )
 
 func main() {
- p := parser.NewParser()
+ p := parser.NewParser(os.Stdout)
+ p.SetProgramName("myapp")
 
  var name string
  var verbose bool
  p.StringVar(&name, "n", "", "default", "The name of the user")
  p.BoolVar(&verbose, "v", "", false, "Enable verbose output")
 
- p.Parse()
+ err := p.Parse(os.Args[1:])
+ if err != nil {
+  if err == parser.ErrHelpRequested {
+   return
+  }
+  fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+  os.Exit(1)
+ }
 
  fmt.Println("Name:", name)
  if verbose {
@@ -205,18 +249,27 @@ package main
 
 import (
  "fmt"
+ "os"
  "github.com/cryptrunner49/argonaut/parser"
 )
 
 func main() {
- p := parser.NewParser()
+ p := parser.NewParser(os.Stdout)
+ p.SetProgramName("myapp")
 
  var name string
  var verbose bool
  p.StringVar(&name, "", "name", "default", "The name of the user")
  p.BoolVar(&verbose, "", "verbose", false, "Enable verbose output")
 
- p.Parse()
+ err := p.Parse(os.Args[1:])
+ if err != nil {
+  if err == parser.ErrHelpRequested {
+   return
+  }
+  fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+  os.Exit(1)
+ }
 
  fmt.Println("Name:", name)
  if verbose {
@@ -234,20 +287,22 @@ go run main.go --name=Bob --verbose
 # Verbose mode enabled
 ```
 
-### Mixed Short and Long Flags
+### Mixed Short and Long Flags with Commands
 
-A program mixing short and long flags, no bare commands:
+A program mixing short and long flags with bare commands:
 
 ```go
 package main
 
 import (
  "fmt"
+ "os"
  "github.com/cryptrunner49/argonaut/parser"
 )
 
 func main() {
- p := parser.NewParser()
+ p := parser.NewParser(os.Stdout)
+ p.SetProgramName("myapp")
 
  var name string
  var age int
@@ -256,34 +311,52 @@ func main() {
  p.IntVar(&age, "a", "age", 18, "User's age")
  p.BoolVar(&debug, "d", "debug", false, "Enable debug mode")
 
- p.Parse()
+ err := p.Parse(os.Args[1:])
+ if err != nil {
+  if err == parser.ErrHelpRequested {
+   return
+  }
+  fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+  os.Exit(1)
+ }
 
- fmt.Printf("Name: %s, Age: %d, Debug: %t\n", name, age, debug)
+ args := p.Args()
+ if len(args) > 0 {
+  switch args[0] {
+  case "start":
+   fmt.Printf("Starting %s (age %d), Debug: %t\n", name, age, debug)
+  case "stop":
+   fmt.Printf("Stopping %s (age %d), Debug: %t\n", name, age, debug)
+  default:
+   fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[0])
+   os.Exit(1)
+  }
+ }
 }
 ```
 
-Run it with short flags:
+Run it with short flags and a command:
 
 ```bash
-go run main.go -n Alice -a 25 -d
+go run main.go -n Alice -a 25 -d start
 # Output:
-# Name: Alice, Age: 25, Debug: true
+# Starting Alice (age 25), Debug: true
 ```
 
-Run it with long flags:
+Run it with long flags and a command:
 
 ```bash
-go run main.go --name=Bob --age=30 --debug
+go run main.go --name=Bob --age=30 --debug stop
 # Output:
-# Name: Bob, Age: 30, Debug: true
+# Stopping Bob (age 30), Debug: true
 ```
 
-Run it with mixed flags:
+Run it with mixed flags and a command:
 
 ```bash
-go run main.go -n Charlie --age=35 -d
+go run main.go -n Charlie --age=35 -d start
 # Output:
-# Name: Charlie, Age: 35, Debug: true
+# Starting Charlie (age 35), Debug: true
 ```
 
 Run with `--help`:
@@ -291,7 +364,7 @@ Run with `--help`:
 ```bash
 go run main.go --help
 # Output:
-# Usage of ./main:
+# Usage of myapp:
 #   -n, --name string
 #         User's name (default "unknown")
 #   -a, --age int
@@ -310,6 +383,8 @@ go run main.go --help
 type Parser struct {
     flags      []flagInfo // Stores registered flags
     positional []string   // Stores positional arguments
+    output     io.Writer  // Where to write usage and errors
+    program    string     // Program name for usage
 }
 ```
 
@@ -318,12 +393,25 @@ Represents the command-line parser instance.
 ### NewParser
 
 ```go
-func NewParser() *Parser
+func NewParser(out io.Writer) *Parser
 ```
 
-Creates and returns a new `Parser` instance.
+Creates and returns a new `Parser` instance with an output writer.
 
+- **Parameters**:
+  - `out io.Writer`: Where usage and error messages are written (e.g., `os.Stdout` or `bytes.Buffer`).
 - **Returns**: `*Parser` – A pointer to an initialized parser.
+
+### SetProgramName
+
+```go
+func (p *Parser) SetProgramName(name string)
+```
+
+Sets the program name used in usage output.
+
+- **Parameters**:
+  - `name string`: The name to display in usage (e.g., `"myapp"`).
 
 ### StringVar
 
@@ -335,10 +423,10 @@ Registers a string flag with optional short and long names.
 
 - **Parameters**:
   - `ptr *string`: Pointer to the variable to store the flag value.
-  - `shortName string`: Short flag name (e.g., `"n"` for `-n`), or `""` if unused.
-  - `longName string`: Long flag name (e.g., `"name"` for `--name`), or `""` if unused.
+  - `shortName string`: Short flag name (e.g., `"n"`), or `""` if unused.
+  - `longName string`: Long flag name (e.g., `"name"`), or `""` if unused.
   - `defaultValue string`: Default value if the flag isn’t provided.
-  - `description string`: Description for `--help`/`-h` output.
+  - `description string`: Description for usage output.
 
 ### IntVar
 
@@ -373,10 +461,14 @@ Registers a boolean flag with optional short and long names (set to `true` when 
 ### Parse
 
 ```go
-func (p *Parser) Parse()
+func (p *Parser) Parse(args []string) error
 ```
 
-Parses command-line arguments from `os.Args` and sets flag values. Exits with usage info if `--help` or `-h` is provided or with an error for invalid/unknown flags.
+Parses the provided arguments and sets flag values. Returns an error for invalid inputs or help requests.
+
+- **Parameters**:
+  - `args []string`: Arguments to parse (e.g., `os.Args[1:]`).
+- **Returns**: `error` – `nil` on success, `ErrHelpRequested` for help flags, or an error for invalid/unknown flags.
 
 ### Args
 
@@ -388,31 +480,52 @@ Returns the list of positional arguments, including bare commands.
 
 - **Returns**: `[]string` – Slice of non-flag arguments (e.g., `[install package]`).
 
-### Usage
-
-```go
-func (p *Parser) Usage()
-```
-
-Prints usage information for all registered flags, showing defined short and/or long names. Called automatically by `Parse()` when `--help` or `-h` is detected.
-
 ---
 
 ## Testing
 
-The library includes a test suite in `parser/parser_test.go`. To run the tests:
+The library is designed to be test-friendly. Use a `bytes.Buffer` for output and pass arguments directly to `Parse`. Example:
+
+```go
+package parser
+
+import (
+ "bytes"
+ "testing"
+)
+
+func TestParser(t *testing.T) {
+ out := &bytes.Buffer{}
+ p := NewParser(out)
+ var name string
+ p.StringVar(&name, "n", "name", "default", "User name")
+
+ err := p.Parse([]string{"-n", "test"})
+ if err != nil {
+  t.Fatalf("Unexpected error: %v", err)
+ }
+ if name != "test" {
+  t.Errorf("Expected 'test', got %s", name)
+ }
+
+ err = p.Parse([]string{"--help"})
+ if err != ErrHelpRequested {
+  t.Errorf("Expected ErrHelpRequested, got %v", err)
+ }
+ if out.Len() == 0 {
+  t.Error("Expected usage output")
+ }
+}
+```
+
+Run the tests:
 
 ```bash
 cd parser
 go test
 ```
 
-The tests cover:
-
-- Parsing string, int, and bool flags with short and long names.
-- Handling positional arguments and bare commands.
-- Default value behavior.
-- Mixed short/long flag usage.
+The included test suite covers flag parsing, error cases, and help output.
 
 ---
 
