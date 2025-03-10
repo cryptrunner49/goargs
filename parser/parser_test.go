@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-func TestParser(t *testing.T) {
-	// Test long flags with positional arguments
+func TestParserLongFlags(t *testing.T) {
 	os.Args = []string{"program", "--name=John", "--age=30", "install", "package"}
 	p := NewParser()
 	var name string
@@ -30,10 +29,14 @@ func TestParser(t *testing.T) {
 	if len(args) != 2 || args[0] != "install" || args[1] != "package" {
 		t.Errorf("Expected args [install package], got %v", args)
 	}
+}
 
-	// Test short flags
+func TestParserShortFlags(t *testing.T) {
 	os.Args = []string{"program", "-n", "Jane", "-a=25", "-v", "push"}
-	p = NewParser()
+	p := NewParser()
+	var name string
+	var age int
+	var verbose bool
 	p.StringVar(&name, "n", "name", "default", "The name")
 	p.IntVar(&age, "a", "age", 0, "The age")
 	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
@@ -47,23 +50,28 @@ func TestParser(t *testing.T) {
 	if verbose != true {
 		t.Errorf("Expected verbose true, got %t", verbose)
 	}
-	args = p.Args()
+	args := p.Args()
 	if len(args) != 1 || args[0] != "push" {
 		t.Errorf("Expected args [push], got %v", args)
 	}
+}
 
-	// Test bool flag with long name
+func TestParserBoolFlag(t *testing.T) {
 	os.Args = []string{"program", "--verbose"}
-	p = NewParser()
+	p := NewParser()
+	var verbose bool
 	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
 	p.Parse()
 	if verbose != true {
 		t.Errorf("Expected verbose true, got %t", verbose)
 	}
+}
 
-	// Test default values with bare command
+func TestParserDefaultValues(t *testing.T) {
 	os.Args = []string{"program", "install"}
-	p = NewParser()
+	p := NewParser()
+	var name string
+	var age int
 	p.StringVar(&name, "n", "name", "default", "The name")
 	p.IntVar(&age, "a", "age", 0, "The age")
 	p.Parse()
@@ -73,14 +81,18 @@ func TestParser(t *testing.T) {
 	if age != 0 {
 		t.Errorf("Expected age 0, got %d", age)
 	}
-	args = p.Args()
+	args := p.Args()
 	if len(args) != 1 || args[0] != "install" {
 		t.Errorf("Expected args [install], got %v", args)
 	}
+}
 
-	// Test mixed short and long flags
+func TestParserMixedFlags(t *testing.T) {
 	os.Args = []string{"program", "-n=Bob", "--age", "40", "build"}
-	p = NewParser()
+	p := NewParser()
+	var name string
+	var age int
+	var verbose bool
 	p.StringVar(&name, "n", "name", "default", "The name")
 	p.IntVar(&age, "a", "age", 0, "The age")
 	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
@@ -94,8 +106,25 @@ func TestParser(t *testing.T) {
 	if verbose != false {
 		t.Errorf("Expected verbose false, got %t", verbose)
 	}
-	args = p.Args()
+	args := p.Args()
 	if len(args) != 1 || args[0] != "build" {
 		t.Errorf("Expected args [build], got %v", args)
+	}
+}
+
+func TestParserPositionalArgs(t *testing.T) {
+	os.Args = []string{"program", "build", "project"}
+	p := NewParser()
+	var name string
+	var age int
+	var verbose bool
+	p.StringVar(&name, "n", "name", "default", "The name")
+	p.IntVar(&age, "a", "age", 0, "The age")
+	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
+	p.Parse()
+
+	args := p.Args()
+	if len(args) != 2 || args[0] != "build" || args[1] != "project" {
+		t.Errorf("Expected args [build project], got %v", args)
 	}
 }
