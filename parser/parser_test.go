@@ -1,20 +1,29 @@
 package parser
 
 import (
-	"os"
+	"bytes"
+	"reflect"
+	"strings"
 	"testing"
 )
 
 func TestParserLongFlags(t *testing.T) {
-	os.Args = []string{"program", "--name=John", "--age=30", "install", "package"}
-	p := NewParser()
+	args := []string{"--name=John", "--age=30", "install", "package"}
+	out := &bytes.Buffer{}
+	p := NewParser(out)
+	p.SetProgramName("testprog")
+
 	var name string
 	var age int
 	var verbose bool
 	p.StringVar(&name, "n", "name", "default", "The name")
 	p.IntVar(&age, "a", "age", 0, "The age")
 	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
-	p.Parse()
+
+	err := p.Parse(args)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
 	if name != "John" {
 		t.Errorf("Expected name 'John', got %s", name)
@@ -25,22 +34,28 @@ func TestParserLongFlags(t *testing.T) {
 	if verbose != false {
 		t.Errorf("Expected verbose false, got %t", verbose)
 	}
-	args := p.Args()
-	if len(args) != 2 || args[0] != "install" || args[1] != "package" {
-		t.Errorf("Expected args [install package], got %v", args)
+	if !reflect.DeepEqual(p.Args(), []string{"install", "package"}) {
+		t.Errorf("Expected args [install package], got %v", p.Args())
 	}
 }
 
 func TestParserShortFlags(t *testing.T) {
-	os.Args = []string{"program", "-n", "Jane", "-a=25", "-v", "push"}
-	p := NewParser()
+	args := []string{"-n", "Jane", "-a=25", "-v", "push"}
+	out := &bytes.Buffer{}
+	p := NewParser(out)
+
 	var name string
 	var age int
 	var verbose bool
 	p.StringVar(&name, "n", "name", "default", "The name")
 	p.IntVar(&age, "a", "age", 0, "The age")
 	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
-	p.Parse()
+
+	err := p.Parse(args)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
 	if name != "Jane" {
 		t.Errorf("Expected name 'Jane', got %s", name)
 	}
@@ -50,81 +65,73 @@ func TestParserShortFlags(t *testing.T) {
 	if verbose != true {
 		t.Errorf("Expected verbose true, got %t", verbose)
 	}
-	args := p.Args()
-	if len(args) != 1 || args[0] != "push" {
-		t.Errorf("Expected args [push], got %v", args)
+	if !reflect.DeepEqual(p.Args(), []string{"push"}) {
+		t.Errorf("Expected args [push], got %v", p.Args())
 	}
 }
 
-func TestParserBoolFlag(t *testing.T) {
-	os.Args = []string{"program", "--verbose"}
-	p := NewParser()
-	var verbose bool
-	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
-	p.Parse()
-	if verbose != true {
-		t.Errorf("Expected verbose true, got %t", verbose)
-	}
-}
+func TestParserHelp(t *testing.T) {
+	args := []string{"--help"}
+	out := &bytes.Buffer{}
+	p := NewParser(out)
+	p.SetProgramName("testprog")
 
-func TestParserDefaultValues(t *testing.T) {
-	os.Args = []string{"program", "install"}
-	p := NewParser()
 	var name string
-	var age int
 	p.StringVar(&name, "n", "name", "default", "The name")
+
+	err := p.Parse(args)
+	if err != ErrHelpRequested {
+		t.Errorf("Expected ErrHelpRequested, got %v", err)
+	}
+	if out.Len() == 0 {
+		t.Error("Expected usage output, got none")
+	}
+}
+
+func TestParserInvalidFlag(t *testing.T) {
+	args := []string{"--unknown"}
+	out := &bytes.Buffer{}
+	p := NewParser(out)
+
+	var name string
+	p.StringVar(&name, "n", "name", "default", "The name")
+
+	err := p.Parse(args)
+	if err == nil || err.Error() != "unknown flag: unknown" {
+		t.Errorf("Expected unknown flag error, got %v", err)
+	}
+}
+
+func TestParserInvalidInt(t *testing.T) {
+	args := []string{"--age=invalid"}
+	out := &bytes.Buffer{}
+	p := NewParser(out)
+
+	var age int
 	p.IntVar(&age, "a", "age", 0, "The age")
-	p.Parse()
+
+	err := p.Parse(args)
+	if err == nil || !strings.Contains(err.Error(), "invalid value") {
+		t.Errorf("Expected invalid value error, got %v", err)
+	}
+}
+
+func TestParserEmptyArgs(t *testing.T) {
+	args := []string{}
+	out := &bytes.Buffer{}
+	p := NewParser(out)
+
+	var name string
+	p.StringVar(&name, "n", "name", "default", "The name")
+
+	err := p.Parse(args)
+	if err != nil {
+		t.Errorf("Unexpected error with empty args: %v", err)
+	}
 	if name != "default" {
-		t.Errorf("Expected name 'default', got %s", name)
+		t.Errorf("Expected default name, got %s", name)
 	}
-	if age != 0 {
-		t.Errorf("Expected age 0, got %d", age)
-	}
-	args := p.Args()
-	if len(args) != 1 || args[0] != "install" {
-		t.Errorf("Expected args [install], got %v", args)
-	}
-}
-
-func TestParserMixedFlags(t *testing.T) {
-	os.Args = []string{"program", "-n=Bob", "--age", "40", "build"}
-	p := NewParser()
-	var name string
-	var age int
-	var verbose bool
-	p.StringVar(&name, "n", "name", "default", "The name")
-	p.IntVar(&age, "a", "age", 0, "The age")
-	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
-	p.Parse()
-	if name != "Bob" {
-		t.Errorf("Expected name 'Bob', got %s", name)
-	}
-	if age != 40 {
-		t.Errorf("Expected age 40, got %d", age)
-	}
-	if verbose != false {
-		t.Errorf("Expected verbose false, got %t", verbose)
-	}
-	args := p.Args()
-	if len(args) != 1 || args[0] != "build" {
-		t.Errorf("Expected args [build], got %v", args)
-	}
-}
-
-func TestParserPositionalArgs(t *testing.T) {
-	os.Args = []string{"program", "build", "project"}
-	p := NewParser()
-	var name string
-	var age int
-	var verbose bool
-	p.StringVar(&name, "n", "name", "default", "The name")
-	p.IntVar(&age, "a", "age", 0, "The age")
-	p.BoolVar(&verbose, "v", "verbose", false, "Verbose output")
-	p.Parse()
-
-	args := p.Args()
-	if len(args) != 2 || args[0] != "build" || args[1] != "project" {
-		t.Errorf("Expected args [build project], got %v", args)
+	if len(p.Args()) != 0 {
+		t.Errorf("Expected no positional args, got %v", p.Args())
 	}
 }

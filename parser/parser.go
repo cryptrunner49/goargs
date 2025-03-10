@@ -1,8 +1,9 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
-	"os"
+	"io"
 	"strconv"
 	"strings"
 )
@@ -11,6 +12,8 @@ import (
 type Parser struct {
 	flags      []flagInfo // Stores registered flags
 	positional []string   // Stores positional arguments
+	output     io.Writer  // Where to write usage and errors
+	program    string     // Program name for usage (optional)
 }
 
 // flagInfo holds metadata about a registered flag.
@@ -23,90 +26,86 @@ type flagInfo struct {
 	kind         string      // Type of the flag: "string", "int", or "bool"
 }
 
-// NewParser creates and initializes a new Parser instance.
-func NewParser() *Parser {
+// NewParser creates and initializes a new Parser instance with an output writer.
+func NewParser(out io.Writer) *Parser {
 	return &Parser{
 		flags:      []flagInfo{},
 		positional: []string{},
+		output:     out,
+		program:    "program", // Default program name
 	}
 }
 
-// StringVar registers a string flag with short and long names, default value, and description.
+// SetProgramName sets the program name for usage output.
+func (p *Parser) SetProgramName(name string) {
+	p.program = name
+}
+
+// StringVar registers a string flag.
 func (p *Parser) StringVar(ptr *string, shortName, longName string, defaultValue string, description string) {
-	*ptr = defaultValue // Set the variable to its default value
+	*ptr = defaultValue
 	p.flags = append(p.flags, flagInfo{shortName, longName, ptr, defaultValue, description, "string"})
 }
 
-// IntVar registers an integer flag with short and long names, default value, and description.
+// IntVar registers an integer flag.
 func (p *Parser) IntVar(ptr *int, shortName, longName string, defaultValue int, description string) {
 	*ptr = defaultValue
 	p.flags = append(p.flags, flagInfo{shortName, longName, ptr, defaultValue, description, "int"})
 }
 
-// BoolVar registers a boolean flag with short and long names, default value, and description.
+// BoolVar registers a boolean flag.
 func (p *Parser) BoolVar(ptr *bool, shortName, longName string, defaultValue bool, description string) {
 	*ptr = defaultValue
 	p.flags = append(p.flags, flagInfo{shortName, longName, ptr, defaultValue, description, "bool"})
 }
 
-// Parse processes command-line arguments and sets flag values.
-// It also handles the --help flag to display usage information.
-func (p *Parser) Parse() {
-	args := os.Args[1:] // Skip the program name
-
-	// Check for --help or -h flag
+// Parse processes command-line arguments and returns an error if parsing fails.
+// If --help or -h is present, it prints usage and returns a special error.
+func (p *Parser) Parse(args []string) error {
+	// Check for help flags
 	if contains(args, "--help") || contains(args, "-h") {
-		p.Usage()
-		os.Exit(0)
+		p.printUsage()
+		return ErrHelpRequested
 	}
 
-	// Map to store flags and their values from the command line
-	setFlags := make(map[string]string)
+	// Reset positional arguments
 	p.positional = []string{}
+	setFlags := make(map[string]string)
 
-	// Parse each argument
+	// Parse arguments
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if strings.HasPrefix(arg, "--") {
-			// Long flag
 			if strings.Contains(arg, "=") {
 				parts := strings.SplitN(arg[2:], "=", 2)
-				flag := parts[0]
-				value := parts[1]
-				setFlags[flag] = value
+				setFlags[parts[0]] = parts[1]
 			} else {
 				flag := arg[2:]
-				// Check if next arg is a value (not a flag or positional)
 				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && p.needsValue(flag) {
 					setFlags[flag] = args[i+1]
 					i++
 				} else {
-					setFlags[flag] = "true" // Default for bool flags
+					setFlags[flag] = "true"
 				}
 			}
 		} else if strings.HasPrefix(arg, "-") && arg != "-" {
-			// Short flag
 			flag := arg[1:]
 			if strings.Contains(arg, "=") {
 				parts := strings.SplitN(arg[1:], "=", 2)
-				flag = parts[0]
-				value := parts[1]
-				setFlags[flag] = value
+				setFlags[parts[0]] = parts[1]
 			} else if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && p.needsValue(flag) {
 				setFlags[flag] = args[i+1]
 				i++
 			} else {
-				setFlags[flag] = "true" // Default for bool flags
+				setFlags[flag] = "true"
 			}
 		} else {
-			// Positional argument (no dashes)
 			p.positional = append(p.positional, arg)
 		}
 	}
 
-	// Set registered flag values
+	// Set flag values
 	for _, fi := range p.flags {
-		// Check both short and long names
 		for _, name := range []string{fi.shortName, fi.longName} {
 			if val, ok := setFlags[name]; ok {
 				switch fi.kind {
@@ -115,8 +114,7 @@ func (p *Parser) Parse() {
 				case "int":
 					i, err := strconv.Atoi(val)
 					if err != nil {
-						fmt.Printf("Invalid value for flag -%s/--%s: %s\n", fi.shortName, fi.longName, val)
-						os.Exit(1)
+						return fmt.Errorf("invalid value for flag -%s/--%s: %s", fi.shortName, fi.longName, val)
 					}
 					*fi.ptr.(*int) = i
 				case "bool":
@@ -125,22 +123,21 @@ func (p *Parser) Parse() {
 					} else if val == "false" {
 						*fi.ptr.(*bool) = false
 					} else {
-						fmt.Printf("Invalid value for bool flag -%s/--%s: %s\n", fi.shortName, fi.longName, val)
-						os.Exit(1)
+						return fmt.Errorf("invalid value for bool flag -%s/--%s: %s", fi.shortName, fi.longName, val)
 					}
 				}
 			}
 		}
-		// If flag not provided, it retains its default value set during registration
 	}
 
 	// Check for unknown flags
 	for flag := range setFlags {
 		if !p.hasFlag(flag) {
-			fmt.Printf("Unknown flag: %s\n", flag)
-			os.Exit(1)
+			return fmt.Errorf("unknown flag: %s", flag)
 		}
 	}
+
+	return nil
 }
 
 // Args returns the list of positional arguments.
@@ -148,22 +145,22 @@ func (p *Parser) Args() []string {
 	return p.positional
 }
 
-// Usage generates and prints the documentation for all registered flags.
-func (p *Parser) Usage() {
-	fmt.Printf("Usage of %s:\n", os.Args[0])
+// printUsage generates and writes the usage documentation.
+func (p *Parser) printUsage() {
+	fmt.Fprintf(p.output, "Usage of %s:\n", p.program)
 	for _, fi := range p.flags {
 		switch fi.kind {
 		case "string":
-			fmt.Printf("  -%s, --%s string\n        %s (default %q)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
+			fmt.Fprintf(p.output, "  -%s, --%s string\n        %s (default %q)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
 		case "int":
-			fmt.Printf("  -%s, --%s int\n        %s (default %d)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
+			fmt.Fprintf(p.output, "  -%s, --%s int\n        %s (default %d)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
 		case "bool":
-			fmt.Printf("  -%s, --%s\n        %s (default %t)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
+			fmt.Fprintf(p.output, "  -%s, --%s\n        %s (default %t)\n", fi.shortName, fi.longName, fi.description, fi.defaultValue)
 		}
 	}
 }
 
-// hasFlag checks if a flag (short or long) is registered.
+// hasFlag checks if a flag is registered.
 func (p *Parser) hasFlag(name string) bool {
 	for _, fi := range p.flags {
 		if fi.shortName == name || fi.longName == name {
@@ -173,7 +170,7 @@ func (p *Parser) hasFlag(name string) bool {
 	return false
 }
 
-// needsValue checks if a flag requires a value (i.e., not a bool flag).
+// needsValue checks if a flag requires a value.
 func (p *Parser) needsValue(name string) bool {
 	for _, fi := range p.flags {
 		if (fi.shortName == name || fi.longName == name) && fi.kind != "bool" {
@@ -183,7 +180,7 @@ func (p *Parser) needsValue(name string) bool {
 	return false
 }
 
-// contains checks if a string slice includes a specific item.
+// contains checks if a string slice includes an item.
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
@@ -192,3 +189,6 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
+
+// ErrHelpRequested is returned when --help or -h is encountered.
+var ErrHelpRequested = errors.New("help requested")
