@@ -10,13 +10,13 @@ func main() {
 	// Create a new parser
 	p := parser.NewParser()
 
-	// Define variables and register flags
+	// Define variables and register flags with short and long names
 	var name string
 	var age int
 	var verbose bool
-	p.StringVar(&name, "name", "default", "The name of the user")
-	p.IntVar(&age, "age", 0, "The age of the user")
-	p.BoolVar(&verbose, "verbose", false, "Enable verbose output")
+	p.StringVar(&name, "n", "name", "default", "The name of the user")
+	p.IntVar(&age, "a", "age", 0, "The age of the user")
+	p.BoolVar(&verbose, "v", "verbose", false, "Enable verbose output")
 
 	// Parse command-line arguments
 	p.Parse()
