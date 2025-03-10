@@ -7,7 +7,7 @@
 - **Auto-Documentation:** Generates docs for flags automatically via usage output.
 - **Simple & Intuitive:** Easily define CLI arguments with minimal setup.
 - **Test-Friendly:** No process exits, capturable output, and error-based API.
-- **Flexible & Powerful:** Supports short/long flags and positional arguments.
+- **Flexible & Powerful:** Supports short/long flags (optional), positional arguments, and manual usage display.
 - **Go-Powered:** Lightweight, efficient, and designed for performance.
 
 ## Quick Start 🚀
@@ -39,7 +39,7 @@ func main() {
     var age int
     var verbose bool
 
-    // Register flags with short/long names
+    // Register flags with short/long names (either can be "")
     p.StringVar(&name, "n", "name", "default", "The name of the user")
     p.IntVar(&age, "a", "age", 0, "The age of the user")
     p.BoolVar(&verbose, "v", "verbose", false, "Enable verbose output")
@@ -51,6 +51,12 @@ func main() {
         }
         fmt.Fprintf(os.Stderr, "Error: %v\n", err)
         os.Exit(1)
+    }
+
+    // Manually show usage if no args provided (optional)
+    if len(os.Args) == 1 {
+        p.Usage()
+        return
     }
 
     // Use parsed values
@@ -76,9 +82,9 @@ p.SetProgramName("myapp")           // Optional: sets program name for usage
 var s string
 var i int
 var b bool
-p.StringVar(&s, "s", "string", "def", "A string flag")
-p.IntVar(&i, "i", "int", 0, "An integer flag")
-p.BoolVar(&b, "b", "bool", false, "A boolean flag")
+p.StringVar(&s, "s", "string", "def", "A string flag") // Both short and long
+p.IntVar(&i, "i", "", 0, "An integer flag")            // Only short
+p.BoolVar(&b, "", "bool", false, "A boolean flag")     // Only long
 ```
 
 ### Parsing Arguments
@@ -88,6 +94,12 @@ err := p.Parse(args []string) // Returns error instead of exiting
 if err == parser.ErrHelpRequested {
     // Handle help request (usage was printed)
 }
+```
+
+### Showing Usage Manually
+
+```go
+p.Usage() // Prints usage to the configured io.Writer
 ```
 
 ### Getting Positional Arguments
@@ -100,10 +112,10 @@ args := p.Args() // Returns []string of positional arguments
 
 The parser is designed to be test-friendly:
 
-- Use a `bytes.Buffer` as the output writer to capture usage output
-- Pass argument slices directly to `Parse`
-- Check returned errors instead of handling process exits
-- No global state dependencies
+- Use a `bytes.Buffer` to capture usage output.
+- Pass argument slices directly to `Parse`.
+- Check returned errors instead of handling process exits.
+- No global state dependencies.
 
 Example test:
 
@@ -113,7 +125,8 @@ func TestExample(t *testing.T) {
     p := parser.NewParser(out)
     var flag string
     p.StringVar(&flag, "f", "flag", "", "Test flag")
-    
+
+    // Test parsing
     err := p.Parse([]string{"--flag=test"})
     if err != nil {
         t.Fatal(err)
@@ -121,8 +134,24 @@ func TestExample(t *testing.T) {
     if flag != "test" {
         t.Errorf("expected 'test', got %q", flag)
     }
+
+    // Test usage output
+    out.Reset()
+    p.Usage()
+    expected := `Usage of program:
+  -f, --flag string
+        Test flag (default "")
+`
+    if out.String() != expected {
+        t.Errorf("expected usage:\n%s\ngot:\n%s", expected, out.String())
+    }
 }
 ```
+
+## Notes 📝
+
+- **Flag Names**: Either short (`-f`) or long (`--flag`) names can be omitted by setting them to `""`. Duplicate flag names are allowed, with the last registered flag taking precedence.
+- **Bare Commands**: Positional arguments can be used as bare commands (e.g., `myapp start`), handled manually via `p.Args()`.
 
 ## Contributing 🤝
 
