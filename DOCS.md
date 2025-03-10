@@ -34,6 +34,7 @@ This document provides a comprehensive guide to using the library, including ins
    - [BoolVar](#boolvar)
    - [Parse](#parse)
    - [Args](#args)
+   - [Usage](#usage)
 6. [Testing](#testing)
 7. [Contributing](#contributing)
 8. [License](#license)
@@ -63,7 +64,7 @@ The library has no external dependencies beyond the Go standard library.
 
 ## Quick Start
 
-Here’s a minimal example using bare commands and a flag:
+Here’s a minimal example using bare commands and a flag, with manual usage display:
 
 ```go
 package main
@@ -90,6 +91,12 @@ func main() {
   os.Exit(1)
  }
 
+ // Show usage if no arguments provided
+ if len(os.Args) == 1 {
+  p.Usage()
+  return
+ }
+
  args := p.Args()
  if len(args) > 0 {
   fmt.Printf("Command: %s, Verbose: %t\n", args[0], verbose)
@@ -103,6 +110,12 @@ Run it:
 go run main.go start -v
 # Output:
 # Command: start, Verbose: true
+
+go run main.go
+# Output:
+# Usage of myapp:
+#   -v, --verbose
+#         Enable verbose output (default false)
 ```
 
 ---
@@ -111,45 +124,46 @@ go run main.go start -v
 
 ### Defining Flags
 
-Flags are defined using `StringVar`, `IntVar`, and `BoolVar`. Each method registers a flag with optional short and long names, a default value, and a description. You can use short flags, long flags, or both by setting unused names to an empty string (`""`).
+Flags are defined using `StringVar`, `IntVar`, and `BoolVar`. Each method registers a flag with optional short and long names, a default value, and a description. Set unused names to `""` to use only short or long flags.
 
 #### Using Short Flags
 
 - **Syntax**: `-flag=value` or `-flag value` (for string and int), `-flag` (for bool, sets to `true`).
 - **Setup**: Provide a short name (e.g., `"v"`) and set `longName` to `""`.
-- **Note**: Long flags won’t be recognized if `longName` is empty.
+- **Note**: Long flags are ignored if `longName` is empty.
 
 #### Using Long Flags
 
 - **Syntax**: `--flag=value` or `--flag value` (for string and int), `--flag` (for bool, sets to `true`).
 - **Setup**: Provide a long name (e.g., `"verbose"`) and set `shortName` to `""`.
-- **Note**: Short flags won’t be recognized if `shortName` is empty.
+- **Note**: Short flags are ignored if `shortName` is empty.
 
-- **Default Values**: If a flag isn’t provided, it retains its default value.
+- **Default Values**: Flags retain their default value if not provided.
+- **Duplicates**: If multiple flags share the same name, the last registered flag takes precedence.
 
 ### Parsing Arguments
 
-Call `Parse(args []string)` to process command-line arguments. It sets registered flag values, collects positional arguments, and returns an error for invalid inputs or help requests.
+Call `Parse(args []string)` to process command-line arguments. It sets flag values, collects positional arguments, and returns an error for invalid inputs or help requests.
 
 ### Accessing Positional Arguments and Bare Commands
 
-Use `Args()` to retrieve a slice of positional arguments, which include bare commands (non-flag arguments without dashes, like `install` or `push`). You can treat these as commands and handle them manually.
+Use `Args()` to retrieve a slice of positional arguments, which include bare commands (non-flag arguments like `install` or `push`). Handle these manually as needed.
 
-- **Bare Commands**: Arguments without `-` or `--` are treated as positional arguments. You can use the parser without flags to focus solely on bare commands or combine them with flags.
+- **Bare Commands**: Non-flag arguments are treated as positional. Use without flags for bare command focus or combine with flags.
 
 ### Displaying Usage Information
 
-The library automatically handles `--help` and `-h` flags, printing usage to the provided `io.Writer` and returning `ErrHelpRequested`. You can customize the program name with `SetProgramName`.
+The library automatically handles `--help` and `-h` flags, printing usage to the `io.Writer` and returning `ErrHelpRequested`. Use `SetProgramName` to customize the program name. Call `Usage()` manually to display usage at any time (e.g., when no arguments are provided).
 
 ### Error Handling
 
-`Parse` returns an error in these cases:
+`Parse` returns an error for:
 
-- `ErrHelpRequested`: When `--help` or `-h` is provided (usage is printed).
+- `ErrHelpRequested`: When `--help` or `-h` is provided.
 - Invalid flag values (e.g., non-integer for int flags).
 - Unknown flags.
 
-Check the error and handle accordingly.
+Handle errors appropriately, exiting gracefully for help requests.
 
 ---
 
@@ -179,6 +193,11 @@ func main() {
   }
   fmt.Fprintf(os.Stderr, "Error: %v\n", err)
   os.Exit(1)
+ }
+
+ if len(os.Args) == 1 {
+  p.Usage()
+  return
  }
 
  fmt.Println("Commands:", p.Args())
@@ -308,8 +327,8 @@ func main() {
  var age int
  var debug bool
  p.StringVar(&name, "n", "name", "unknown", "User's name")
- p.IntVar(&age, "a", "age", 18, "User's age")
- p.BoolVar(&debug, "d", "debug", false, "Enable debug mode")
+ p.IntVar(&age, "", "age", 18, "User's age")
+ p.BoolVar(&debug, "d", "", false, "Enable debug mode")
 
  err := p.Parse(os.Args[1:])
  if err != nil {
@@ -318,6 +337,11 @@ func main() {
   }
   fmt.Fprintf(os.Stderr, "Error: %v\n", err)
   os.Exit(1)
+ }
+
+ if len(os.Args) == 1 {
+  p.Usage()
+  return
  }
 
  args := p.Args()
@@ -338,17 +362,17 @@ func main() {
 Run it with short flags and a command:
 
 ```bash
-go run main.go -n Alice -a 25 -d start
+go run main.go -n Alice -d start
 # Output:
-# Starting Alice (age 25), Debug: true
+# Starting Alice (age 18), Debug: true
 ```
 
 Run it with long flags and a command:
 
 ```bash
-go run main.go --name=Bob --age=30 --debug stop
+go run main.go --name=Bob --age=30 stop
 # Output:
-# Stopping Bob (age 30), Debug: true
+# Stopping Bob (age 30), Debug: false
 ```
 
 Run it with mixed flags and a command:
@@ -367,9 +391,9 @@ go run main.go --help
 # Usage of myapp:
 #   -n, --name string
 #         User's name (default "unknown")
-#   -a, --age int
+#   --age int
 #         User's age (default 18)
-#   -d, --debug
+#   -d
 #         Enable debug mode (default false)
 ```
 
@@ -480,6 +504,14 @@ Returns the list of positional arguments, including bare commands.
 
 - **Returns**: `[]string` – Slice of non-flag arguments (e.g., `[install package]`).
 
+### Usage
+
+```go
+func (p *Parser) Usage()
+```
+
+Prints usage information for all registered flags to the parser’s `output` writer, showing only defined short and/or long names. Can be called manually or triggered by `Parse` for `--help` or `-h`.
+
 ---
 
 ## Testing
@@ -497,9 +529,11 @@ import (
 func TestParser(t *testing.T) {
  out := &bytes.Buffer{}
  p := NewParser(out)
+ p.SetProgramName("testapp")
  var name string
  p.StringVar(&name, "n", "name", "default", "User name")
 
+ // Test parsing
  err := p.Parse([]string{"-n", "test"})
  if err != nil {
   t.Fatalf("Unexpected error: %v", err)
@@ -508,12 +542,25 @@ func TestParser(t *testing.T) {
   t.Errorf("Expected 'test', got %s", name)
  }
 
+ // Test manual usage
+ out.Reset()
+ p.Usage()
+ expected := `Usage of testapp:
+  -n, --name string
+        User name (default "default")
+`
+ if out.String() != expected {
+  t.Errorf("Expected usage:\n%sGot:\n%s", expected, out.String())
+ }
+
+ // Test help request
+ out.Reset()
  err = p.Parse([]string{"--help"})
  if err != ErrHelpRequested {
   t.Errorf("Expected ErrHelpRequested, got %v", err)
  }
- if out.Len() == 0 {
-  t.Error("Expected usage output")
+ if out.String() != expected {
+  t.Errorf("Expected usage on help:\n%sGot:\n%s", expected, out.String())
  }
 }
 ```
@@ -525,7 +572,7 @@ cd parser
 go test
 ```
 
-The included test suite covers flag parsing, error cases, and help output.
+The included test suite covers flag parsing, error cases, usage output, and edge cases like empty flag names and duplicates.
 
 ---
 
