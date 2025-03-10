@@ -2,7 +2,7 @@
 
 ## Argonaut Parser Library
 
-The `Argonaut Parser` is a simple, lightweight command-line argument parsing library for Go. It allows developers to define and parse flags (string, int, and bool) with both short (e.g., `-v`) and long (e.g., `--verbose`) forms, and handle positional arguments, including bare commands like `install` or `push`. This library is ideal for small to medium-sized CLI applications where you need flexible flag parsing without additional dependencies.
+The `Argonaut Parser` is a simple, lightweight command-line argument parsing library for Go. It allows developers to define and parse flags (string, int, and bool) with optional short (e.g., `-v`) and long (e.g., `--verbose`) forms, and handle positional arguments, including bare commands like `install` or `push`. This library is ideal for small to medium-sized CLI applications where you need flexible flag parsing without additional dependencies.
 
 This document provides a comprehensive guide to using the library, including installation instructions, usage examples, and a full API reference.
 
@@ -14,12 +14,16 @@ This document provides a comprehensive guide to using the library, including ins
 2. [Quick Start](#quick-start)
 3. [Usage](#usage)
    - [Defining Flags](#defining-flags)
+     - [Using Short Flags](#using-short-flags)
+     - [Using Long Flags](#using-long-flags)
    - [Parsing Arguments](#parsing-arguments)
    - [Accessing Positional Arguments and Bare Commands](#accessing-positional-arguments-and-bare-commands)
    - [Displaying Usage Information](#displaying-usage-information)
 4. [Examples](#examples)
-   - [Basic Example](#basic-example)
-   - [Advanced Example](#advanced-example)
+   - [Bare Commands Only](#bare-commands-only)
+   - [Short Flags Only](#short-flags-only)
+   - [Long Flags Only](#long-flags-only)
+   - [Mixed Short and Long Flags](#mixed-short-and-long-flags)
 5. [API Reference](#api-reference)
    - [Parser Struct](#parser-struct)
    - [NewParser](#newparser)
@@ -58,7 +62,7 @@ The library has no external dependencies beyond the Go standard library.
 
 ## Quick Start
 
-Here’s a minimal example to get you started with short flags and a bare command:
+Here’s a minimal example using only bare commands:
 
 ```go
 package main
@@ -71,23 +75,18 @@ import (
 func main() {
  p := parser.NewParser()
 
- var name string
- p.StringVar(&name, "n", "name", "guest", "The name of the user")
-
  p.Parse()
 
- fmt.Println("Hello,", name)
- fmt.Println("Command:", p.Args())
+ fmt.Println("Commands:", p.Args())
 }
 ```
 
 Run it:
 
 ```bash
-go run main.go -n Alice install
-# Output: 
-# Hello, Alice
-# Command: [install]
+go run main.go install package
+# Output:
+# Commands: [install package]
 ```
 
 ---
@@ -96,11 +95,20 @@ go run main.go -n Alice install
 
 ### Defining Flags
 
-Flags are defined using methods like `StringVar`, `IntVar`, and `BoolVar`. Each method registers a flag with both a short name (e.g., `-v`) and a long name (e.g., `--verbose`), a default value, and a description.
+Flags are defined using methods like `StringVar`, `IntVar`, and `BoolVar`. Each method registers a flag with optional short and long names, a default value, and a description. You can use only short flags, only long flags, or both, by setting the unused name to an empty string (`""`).
 
-- **Syntax for Flags**:
-  - Short flags: `-flag=value` or `-flag value` (for string and int), `-flag` (for bool, sets to `true`).
-  - Long flags: `--flag=value` or `--flag value` (for string and int), `--flag` (for bool, sets to `true`).
+#### Using Short Flags
+
+- **Syntax**: `-flag=value` or `-flag value` (for string and int), `-flag` (for bool, sets to `true`).
+- **Setup**: Provide a short name (e.g., `"v"`) and set `longName` to `""`.
+- **Note**: Long flags won’t be recognized if `longName` is empty.
+
+#### Using Long Flags
+
+- **Syntax**: `--flag=value` or `--flag value` (for string and int), `--flag` (for bool, sets to `true`).
+- **Setup**: Provide a long name (e.g., `"verbose"`) and set `shortName` to `""`.
+- **Note**: Short flags won’t be recognized if `shortName` is empty.
+
 - **Default Values**: If a flag isn’t provided, it retains its default value.
 
 ### Parsing Arguments
@@ -111,19 +119,48 @@ Call `Parse()` to process command-line arguments (`os.Args`). It sets registered
 
 Use `Args()` to retrieve a slice of positional arguments, which include bare commands (non-flag arguments without dashes, like `install` or `push`). This allows mimicking styles like `apt install` or `dnf install`.
 
-- **Bare Commands**: Arguments without `-` or `--` are treated as positional arguments, making it easy to handle commands like `install package` or `push origin`.
+- **Bare Commands**: Arguments without `-` or `--` are treated as positional arguments. You can use the parser without defining any flags to focus solely on bare commands.
 
 ### Displaying Usage Information
 
-The library automatically handles the `--help` and `-h` flags, displaying usage information for all registered flags, showing both short and long forms.
+The library automatically handles the `--help` and `-h` flags, displaying usage information for all registered flags. The output shows only the defined names (short, long, or both).
 
 ---
 
 ## Examples
 
-### Basic Example
+### Bare Commands Only
 
-A simple program with a string and bool flag using short and long names:
+A program using only bare commands, no flags:
+
+```go
+package main
+
+import (
+ "fmt"
+ "github.com/cryptrunner49/argonaut/parser"
+)
+
+func main() {
+ p := parser.NewParser()
+
+ p.Parse()
+
+ fmt.Println("Commands:", p.Args())
+}
+```
+
+Run it:
+
+```bash
+go run main.go push origin
+# Output:
+# Commands: [push origin]
+```
+
+### Short Flags Only
+
+A program using only short flags:
 
 ```go
 package main
@@ -138,8 +175,8 @@ func main() {
 
  var name string
  var verbose bool
- p.StringVar(&name, "n", "name", "default", "The name of the user")
- p.BoolVar(&verbose, "v", "verbose", false, "Enable verbose output")
+ p.StringVar(&name, "n", "", "default", "The name of the user")
+ p.BoolVar(&verbose, "v", "", false, "Enable verbose output")
 
  p.Parse()
 
@@ -150,7 +187,7 @@ func main() {
 }
 ```
 
-Run it with short flags:
+Run it:
 
 ```bash
 go run main.go -n Bob -v
@@ -159,7 +196,36 @@ go run main.go -n Bob -v
 # Verbose mode enabled
 ```
 
-Run it with long flags:
+### Long Flags Only
+
+A program using only long flags:
+
+```go
+package main
+
+import (
+ "fmt"
+ "github.com/cryptrunner49/argonaut/parser"
+)
+
+func main() {
+ p := parser.NewParser()
+
+ var name string
+ var verbose bool
+ p.StringVar(&name, "", "name", "default", "The name of the user")
+ p.BoolVar(&verbose, "", "verbose", false, "Enable verbose output")
+
+ p.Parse()
+
+ fmt.Println("Name:", name)
+ if verbose {
+  fmt.Println("Verbose mode enabled")
+ }
+}
+```
+
+Run it:
 
 ```bash
 go run main.go --name=Bob --verbose
@@ -168,9 +234,9 @@ go run main.go --name=Bob --verbose
 # Verbose mode enabled
 ```
 
-### Advanced Example
+### Mixed Short and Long Flags
 
-A program with multiple flag types, short/long flags, and a bare command:
+A program mixing short and long flags, no bare commands:
 
 ```go
 package main
@@ -193,26 +259,31 @@ func main() {
  p.Parse()
 
  fmt.Printf("Name: %s, Age: %d, Debug: %t\n", name, age, debug)
- fmt.Println("Commands/Files:", p.Args())
 }
 ```
 
-Run it with short flags and a bare command:
+Run it with short flags:
 
 ```bash
-go run main.go -n Alice -a 25 -d install package
+go run main.go -n Alice -a 25 -d
 # Output:
 # Name: Alice, Age: 25, Debug: true
-# Commands/Files: [install package]
 ```
 
-Run it with mixed flags and a bare command:
+Run it with long flags:
 
 ```bash
-go run main.go --name=Bob -a=30 push
+go run main.go --name=Bob --age=30 --debug
 # Output:
-# Name: Bob, Age: 30, Debug: false
-# Commands/Files: [push]
+# Name: Bob, Age: 30, Debug: true
+```
+
+Run it with mixed flags:
+
+```bash
+go run main.go -n Charlie --age=35 -d
+# Output:
+# Name: Charlie, Age: 35, Debug: true
 ```
 
 Run with `--help`:
@@ -260,12 +331,12 @@ Creates and returns a new `Parser` instance.
 func (p *Parser) StringVar(ptr *string, shortName, longName string, defaultValue string, description string)
 ```
 
-Registers a string flag with short and long names.
+Registers a string flag with optional short and long names.
 
 - **Parameters**:
   - `ptr *string`: Pointer to the variable to store the flag value.
-  - `shortName string`: Short flag name (e.g., `"n"` for `-n`).
-  - `longName string`: Long flag name (e.g., `"name"` for `--name`).
+  - `shortName string`: Short flag name (e.g., `"n"` for `-n`), or `""` if unused.
+  - `longName string`: Long flag name (e.g., `"name"` for `--name`), or `""` if unused.
   - `defaultValue string`: Default value if the flag isn’t provided.
   - `description string`: Description for `--help`/`-h` output.
 
@@ -275,12 +346,12 @@ Registers a string flag with short and long names.
 func (p *Parser) IntVar(ptr *int, shortName, longName string, defaultValue int, description string)
 ```
 
-Registers an integer flag with short and long names.
+Registers an integer flag with optional short and long names.
 
 - **Parameters**:
   - `ptr *int`: Pointer to the variable to store the flag value.
-  - `shortName string`: Short flag name.
-  - `longName string`: Long flag name.
+  - `shortName string`: Short flag name, or `""` if unused.
+  - `longName string`: Long flag name, or `""` if unused.
   - `defaultValue int`: Default value.
   - `description string`: Description.
 
@@ -290,12 +361,12 @@ Registers an integer flag with short and long names.
 func (p *Parser) BoolVar(ptr *bool, shortName, longName string, defaultValue bool, description string)
 ```
 
-Registers a boolean flag with short and long names (set to `true` when present, unless explicitly `=false`).
+Registers a boolean flag with optional short and long names (set to `true` when present, unless explicitly `=false`).
 
 - **Parameters**:
   - `ptr *bool`: Pointer to the variable to store the flag value.
-  - `shortName string`: Short flag name.
-  - `longName string`: Long flag name.
+  - `shortName string`: Short flag name, or `""` if unused.
+  - `longName string`: Long flag name, or `""` if unused.
   - `defaultValue bool`: Default value.
   - `description string`: Description.
 
@@ -323,7 +394,7 @@ Returns the list of positional arguments, including bare commands.
 func (p *Parser) Usage()
 ```
 
-Prints usage information for all registered flags, showing both short and long names. Called automatically by `Parse()` when `--help` or `-h` is detected.
+Prints usage information for all registered flags, showing defined short and/or long names. Called automatically by `Parse()` when `--help` or `-h` is detected.
 
 ---
 
