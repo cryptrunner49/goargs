@@ -64,7 +64,7 @@ func (p *Parser) BoolVar(ptr *bool, shortName, longName string, defaultValue boo
 func (p *Parser) Parse(args []string) error {
 	// Check for help flags
 	if contains(args, "--help") || contains(args, "-h") {
-		p.printUsage()
+		p.Usage()
 		return ErrHelpRequested
 	}
 
@@ -145,8 +145,8 @@ func (p *Parser) Args() []string {
 	return p.positional
 }
 
-// printUsage generates and writes the usage documentation.
-func (p *Parser) printUsage() {
+// Usage generates and writes the usage documentation.
+func (p *Parser) Usage() {
 	fmt.Fprintf(p.output, "Usage of %s:\n", p.program)
 	for _, fi := range p.flags {
 		switch fi.kind {
