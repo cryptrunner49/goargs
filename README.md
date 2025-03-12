@@ -1,4 +1,4 @@
-# ArGonaut 🏹🚀  
+# 🏹 ArGonaut 🚀  
 
 **ArGonaut** is an easy-to-use CLI argument parser for Go that automatically generates documentation for every command and flag, ensuring your docs stay up-to-date with zero effort! 🚀📚
 
