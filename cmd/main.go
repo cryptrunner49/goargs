@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cryptrunner49/argonaut/parser"
+	"github.com/cryptrunner49/goargs/parser"
 )
 
 func main() {
