@@ -1,5 +1,5 @@
 # Variables
-BINARY_NAME = ArGonaut
+BINARY_NAME = goargs
 BIN_DIR = bin
 SRC_DIR = cmd
 PACKAGE = ./...
