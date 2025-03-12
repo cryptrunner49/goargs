@@ -1,6 +1,6 @@
-# 🏹 ArGonaut 🚀  
+# 🏹 GoArgs 🚀  
 
-**ArGonaut** is an easy-to-use CLI argument parser for Go that automatically generates documentation for every command and flag, ensuring your docs stay up-to-date with zero effort! 🚀📚
+**GoArgs** is an easy-to-use CLI argument parser for Go that automatically generates documentation for every command and flag, ensuring your docs stay up-to-date with zero effort! 🚀📚
 
 ## Features ✨
 
@@ -15,7 +15,7 @@
 1. **Install via Go Modules:**
 
    ```bash
-   go get github.com/cryptrunner49/argonaut
+   go get github.com/cryptrunner49/goargs
    ```
 
 2. **Basic Usage Example:**
@@ -26,7 +26,7 @@ package main
 import (
     "fmt"
     "os"
-    "github.com/cryptrunner49/argonaut/parser"
+    "github.com/cryptrunner49/goargs/parser"
 )
 
 func main() {
@@ -155,7 +155,7 @@ func TestExample(t *testing.T) {
 
 ## Contributing 🤝
 
-We welcome contributions! Check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to help improve ArGonaut.
+We welcome contributions! Check out our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to help improve GoArgs.
 
 ## License 📜
 
